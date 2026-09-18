@@ -1,0 +1,515 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Koddeweg Hoogvliet – Beschikbare woningen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --free:#22c55e; --option:#eab308; --sold:#ef4444;
+    --ink:#1c1f24; --muted:#6b7280; --line:#e8eae8; --bg:#ffffff; --soft:#f3f5f3; --card:#fff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 "Hanken Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--ink);background:var(--bg)}
+  .wrap{max-width:1500px;margin:0 auto;padding-block:32px;padding-inline:20px}
+  header{display:flex;justify-content:space-between;align-items:end;flex-wrap:wrap;gap:12px;margin-bottom:20px}
+  h1{margin:0;font-size:28px;letter-spacing:-.02em;text-wrap:balance}
+  .sub{color:var(--muted);margin-top:2px}
+  .legend{display:flex;gap:16px;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:12px;height:12px;border-radius:3px;display:inline-block}
+
+  .layout{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:24px;align-items:stretch}
+
+  /* ---------- Beeld + overlay ---------- */
+  .stage{position:relative;border-radius:14px;overflow:hidden;background:#fdfdfd;border:1px solid var(--line);display:flex;align-items:center;padding-block:60px 40px}
+  .stage.is-gevel{padding:0}
+  .stage{min-height:580px} /* hoog genoeg voor de inhoud van het paneel, zonder scrollen */
+  .stage.is-gevel .model{position:absolute;inset:0;height:100%}
+  .model{position:relative;width:100%;aspect-ratio:1292/681}
+  .model img{display:block;width:100%;height:100%;object-fit:contain}
+  .stage.is-gevel .model img{object-fit:cover}
+  .overlay{position:absolute;inset:0;width:100%;height:100%}
+
+  .unit{cursor:pointer;fill-opacity:.3;stroke-width:1.5;stroke-opacity:.9;stroke-linejoin:round;transition:fill-opacity .18s,stroke-width .18s,filter .18s}
+  .unit.free{fill:var(--free);stroke:var(--free);color:var(--free)}
+  .unit.option{fill:var(--option);stroke:var(--option);color:var(--option)}
+  .unit.sold{fill:var(--sold);stroke:var(--sold);color:var(--sold)}
+  .unit:hover,.unit.active{fill-opacity:.72;stroke-width:3;filter:drop-shadow(0 0 8px currentColor)}
+  .unit-label{pointer-events:none;font:700 14px sans-serif;fill:#fff;opacity:0;transition:opacity .18s;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:3px}
+  .unit:hover + .unit-label,.unit.active + .unit-label{opacity:1}
+
+  /* verdiepingen op de gevel: onzichtbaar tot je erover beweegt */
+  .band{cursor:pointer;fill:#fff;fill-opacity:0;stroke:#fff;stroke-opacity:0;stroke-width:3;stroke-linejoin:round;transition:fill-opacity .25s ease,stroke-opacity .25s ease}
+  .overlay.has-active .band{fill:#0d1512;fill-opacity:.22}
+  .overlay.has-active .band.active{fill:#fff;fill-opacity:.38;stroke-opacity:1}
+
+  .floors{position:absolute;top:14px;left:14px;z-index:3;display:flex;gap:2px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+  .floors button{border:0;background:none;font-weight:600;font-size:13px;font-family:inherit;color:var(--ink);padding:7px 12px;border-radius:7px;cursor:pointer;white-space:nowrap}
+  .floors button:hover:not([disabled]):not(.on){background:var(--soft)}
+  .floors button.on{background:var(--ink);color:#fff}
+  .floors button[disabled]{color:#b5bab7;cursor:not-allowed}
+  .hint{position:absolute;left:14px;bottom:14px;z-index:2;background:rgba(255,255,255,.92);padding:6px 10px;border-radius:8px;font-size:12px;color:var(--muted)}
+
+  /* kleine kaart vast onder de tekening (telefoon) */
+  .pop{display:flex;align-items:center;gap:12px;margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 4px 16px rgba(0,0,0,.08);padding:12px 14px;animation:pop .18s ease-out}
+  @keyframes pop{from{transform:translateY(4px)}to{transform:none}}
+  .pop .txt{flex:1;min-width:0}
+  .pop b{display:flex;align-items:center;gap:8px;font-size:16px}
+  .pop .dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+  .pop p{margin:2px 0 0;color:var(--muted);font-size:13px;line-height:1.4}
+  .pop .btn{width:auto;flex:none}
+
+  /* ---------- Paneel rechts ---------- */
+  .panel{background:var(--card);border-radius:14px;border:1px solid var(--line);box-shadow:0 8px 30px rgba(0,0,0,.06);overflow-y:auto;display:flex;flex-direction:column;height:0;min-height:100%} /* hoogte volgt het beeld, zodat de foto nooit verspringt */
+  .empty{padding:48px 28px;text-align:center;color:var(--muted);margin:auto}
+  .empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:6px}
+  .detail{animation:slide .22s ease-out;display:flex;flex-direction:column;flex:1}
+  @keyframes slide{from{transform:translateX(12px)}to{transform:none}}
+
+  .floorinfo{padding:20px 22px 18px;display:flex;flex-direction:column;flex:1}
+  .floorinfo small{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+  .floorinfo h2{margin:2px 0 10px;font-size:26px;letter-spacing:-.02em}
+  .floorinfo p{margin:0 0 14px;font-size:14.5px;line-height:1.5}
+  .facilities{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px;padding:0;list-style:none}
+  .facilities li{background:var(--soft);border-radius:99px;padding:4px 11px;font-size:13px}
+
+  .gallery{position:relative;height:160px;display:flex;align-items:end;justify-content:space-between;padding:10px 12px;color:#fff;font-size:13px;font-weight:500;text-shadow:0 1px 3px rgba(0,0,0,.4);transition:background .25s}
+  .arrow{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;border-radius:50%;border:0;background:rgba(255,255,255,.9);color:var(--ink);font-size:18px;line-height:1;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+  .arrow:hover{background:#fff}
+  .arrow.prev{left:10px} .arrow.next{right:10px}
+
+  .body{padding:14px 20px 18px;display:flex;flex-direction:column;flex:1}
+  .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .top h2{margin:0;font-size:20px}
+  .badge{font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;color:#fff}
+  .badge.free{background:var(--free)} .badge.option{background:var(--option);color:#3b2f00} .badge.sold{background:var(--sold)}
+
+  .key{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .key div{background:var(--soft);border-radius:10px;padding:8px 12px}
+  .key small{display:block;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  .key strong{font-size:22px;letter-spacing:-.02em}
+
+  .specs{list-style:none;margin:0 0 14px;padding:0;border-top:1px solid var(--line)}
+  .specs li{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .specs li span:first-child{color:var(--muted)}
+  .specs li span:last-child{text-align:right}
+  .label{display:inline-block;background:#1a9b48;color:#fff;font-size:12px;padding:1px 10px 1px 8px;clip-path:polygon(0 0,82% 0,100% 50%,82% 100%,0 100%)}
+
+  .btn{width:100%;border:0;border-radius:10px;padding:12px 10px;font-weight:600;font-size:14px;font-family:inherit;cursor:pointer;background:var(--ink);color:#fff;white-space:nowrap;transition:transform .1s,opacity .2s}
+  .btn:hover{opacity:.9} .btn:active{transform:scale(.99)}
+  .btn.small{padding:8px 10px;font-size:13px}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--ink)}
+  .btn[disabled]{background:#e5e7e6;color:#8a908d;cursor:not-allowed}
+  .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto}
+  .btn:focus-visible,.arrow:focus-visible,.close:focus-visible,.floors button:focus-visible,form.apply input:focus-visible{outline:2px solid #1a9b48;outline-offset:2px}
+
+  .modal{position:fixed;inset:0;background:rgba(20,24,22,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10;animation:fade .18s ease-out}
+  @keyframes fade{from{opacity:0}to{opacity:1}}
+  .dialog{position:relative;background:#fff;border-radius:16px;width:100%;max-width:520px;max-height:calc(100vh - 32px);overflow:auto;padding:26px 28px;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .dialog.sheet{padding:0;max-width:420px;display:flex;flex-direction:column}
+  .dialog.sheet .close{position:absolute;top:10px;right:10px;z-index:2;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);margin:0;float:none;line-height:1}
+  .dialog h3{margin:0 36px 4px 0;font-size:20px;line-height:1.3;text-wrap:balance}
+  .dialog p{margin:0 0 18px;color:var(--muted);font-size:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  form.apply{display:grid;gap:10px;margin-top:4px}
+  form.apply label{font-size:12px;color:var(--muted);display:grid;gap:4px}
+  form.apply input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:#fff;color:var(--ink)}
+  .sent{background:#ecfdf3;color:#166534;border-radius:10px;padding:14px;font-size:14px}
+  .close{float:right;position:relative;background:none;border:0;font-size:20px;cursor:pointer;color:var(--muted);margin:-4px -6px 0 0}
+
+  /* ---------- Telefoon & smal scherm ---------- */
+  @media (max-width:900px){
+    .wrap{padding-block:20px;padding-inline:16px}
+    h1{font-size:22px}
+    header{margin-bottom:12px}
+    .layout{grid-template-columns:1fr}
+    .panel{display:none}
+    .stage,.stage.is-gevel{flex-direction:column;align-items:stretch;padding:8px;min-height:0}
+    .stage.is-gevel .model{position:relative;inset:auto;height:auto}
+    .floors{position:static;margin-bottom:8px;overflow-x:auto;box-shadow:none;scrollbar-width:none}
+    .model{border-radius:8px;overflow:visible}
+    .hint{position:static;align-self:flex-start;margin-top:8px;padding:0 2px;background:none}
+    }
+  @media (max-width:480px){ .grid2{grid-template-columns:1fr} }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Koddeweg 55-77, Hoogvliet</h1>
+      <div class="sub" id="sub"></div>
+      <div class="sub" style="font-size:12px">Voorbeeldpagina · huurprijzen en foto's zijn indicatief</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--free)"></i>Beschikbaar</span>
+      <span><i style="background:var(--option)"></i>In optie</span>
+      <span><i style="background:var(--sold)"></i>Verhuurd</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <div class="stage" id="stage">
+      <div class="floors" role="tablist" aria-label="Weergave">
+        <button role="tab" data-view="gevel">Gevel</button>
+        <button role="tab" data-view="0">Begane grond</button>
+        <button role="tab" data-view="1" disabled title="Plattegrond volgt">1e</button>
+        <button role="tab" data-view="2" disabled title="Plattegrond volgt">2e</button>
+        <button role="tab" data-view="3">3e</button>
+        <button role="tab" data-view="4" disabled title="Plattegrond volgt">4e</button>
+      </div>
+      <div class="model" id="model">
+        <img id="viewImg" alt="">
+        <!-- viewBox = pixelmaat van het plaatje; vakjes zijn uitgelijnd op de plattegronden BA.BWK.00 / BA.BWK.03 -->
+        <svg class="overlay" id="overlay" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="hint" id="hint"></div>
+    </div>
+
+    <aside class="panel" id="panel"></aside>
+  </div>
+</div>
+
+<script>
+/* ---------- Gevel: vlakken per verdieping (pixels van gevel.webp) ---------- */
+const GEVEL = {img:'gevel.webp', w:1920, h:1080, bands:{
+  4: '290,120 1130,275 1400,95 1715,195 1712,298 1400,232 1130,372 298,265',
+  3: '298,265 1130,372 1400,232 1712,298 1718,402 1400,360 1130,452 290,388',
+  2: '290,388 1130,452 1400,360 1718,402 1722,525 1400,525 1240,532 1130,548 282,502',
+  1: '282,502 1130,548 1240,532 1400,525 1722,525 1728,603 1240,605 1130,628 278,602',
+  0: '278,602 1130,628 1240,605 1728,603 1735,697 1130,695 270,700',
+}};
+
+/* ---------- Tekst per verdieping (verschijnt bij hover op de gevel) ---------- */
+const FLOORINFO = {
+  0: {name:'Begane grond', short:'Entree, gemeenschappelijke woonkamer en wasruimte · 15 woningen',
+      text:'De entree met ruime hal, postkasten en DHL-punt. Met een gemeenschappelijke woonkamer (pantry, tafeltennis) en een wasmachineruimte. 14 studio\'s en één woning met slaapkamer, deels aan de binnentuin.',
+      facilities:['Woonkamer 65 m²','Wasmachineruimte','Postkasten & DHL-punt']},
+  1: {name:'1e verdieping', short:'Woonverdieping · plattegrond volgt',
+      text:'Woonverdieping met studio\'s en appartementen. De plattegrond en beschikbaarheid volgen binnenkort.', facilities:['Lift']},
+  2: {name:'2e verdieping', short:'Woonverdieping · plattegrond volgt',
+      text:'Woonverdieping met studio\'s en appartementen. De plattegrond en beschikbaarheid volgen binnenkort.', facilities:['Lift']},
+  3: {name:'3e verdieping', short:'Studio\'s en 2-slaapkamerappartementen · 12 woningen',
+      text:'Negen studio\'s en drie appartementen met twee slaapkamers, waarvan twee in de kopgevel. Op deze verdieping ligt ook een gemeenschappelijke ruimte met pantry.',
+      facilities:['Gemeenschappelijke ruimte 64 m²','Lift']},
+  4: {name:'4e verdieping', short:'Bovenste verdieping · informatie volgt',
+      text:'De bovenste verdieping met rondom glas. Meer informatie volgt binnenkort.', facilities:[]},
+};
+
+/* ---------- Plattegronden: plaatje + vakjes (pixels van het plaatje) ---------- */
+const FLOORS = {
+  0: {img:'begane-grond.webp', w:1292, h:681, shapes:{
+    '57': '936,22 869,36 930,76 1001,59',
+    '59': '869,36 794,52 850,95 930,76',
+    '61': '794,52 713,69 763,116 850,95',
+    '63': '713,69 624,88 667,139 763,116',
+    '65': '624,88 524,109 559,165 667,139',
+    '67': '524,109 421,131 444,193 559,165',
+    '69': '421,131 305,156 315,224 444,193',
+    '71': '305,156 86,202 67,283 315,224',
+    '83': '690,157 614,177 665,250 749,226',
+    '81': '614,177 535,196 578,276 665,250',
+    '79': '535,196 453,217 486,302 578,276',
+    '77': '453,217 364,239 385,332 486,302',
+    '75': '364,239 267,264 274,364 385,332',
+    '73': '267,264 139,296 125,408 274,364',
+    '55': '1030,253 867,313 992,454 1179,366',
+  }},
+  3: {img:'gebouw.png', w:1292, h:538, shapes:{
+    '149': '935,17 791,46 849,85 1001,50',
+    '151': '791,46 682,69 731,113 849,85',
+    '153': '682,69 559,94 597,144 731,113',
+    '155': '559,94 419,123 443,180 597,144',
+    '157': '419,123 260,155 264,222 443,180',
+    '159': '260,155 77,193 54,270 264,222',
+    '167': '683,146 612,163 664,232 743,210',
+    '165': '612,163 452,202 485,283 664,232',
+    '163': '452,202 265,248 270,344 485,283',
+    '161': '265,248 103,287 79,399 270,344',
+    '147': '1040,152 930,187 1159,362 1285,303',
+    '145': '930,187 805,227 1010,433 1159,362',
+  }},
+};
+
+/* ---------- Woninggegevens (m² uit plattegronden; huurprijzen zijn voorbeeld) ---------- */
+const STATUS = {free:'Beschikbaar', option:'In optie', sold:'Verhuurd'};
+const COLOR = {free:'var(--free)', option:'var(--option)', sold:'var(--sold)'};
+const studio = (nr, m2, berging='—') => ({nr, status:'free', m2, bedrooms:0, berging});
+const units = [
+  // begane grond
+  {nr:'55', status:'free', m2:38.4, bedrooms:1, berging:'2,7 m²'},
+  studio('57',24.6), studio('59',25.6), studio('61',25.1), studio('63',25.0),
+  studio('65',25.0), studio('67',24.9), studio('69',24.9), studio('71',43.0),
+  studio('73',24.8), studio('75',15.5), studio('77',15.5), studio('79',15.5),
+  studio('81',15.5), studio('83',16.6),
+  // 3e verdieping
+  {nr:'145', status:'free', m2:48.7, bedrooms:2, berging:'2,4 m²'},
+  {nr:'147', status:'free', m2:55.2, bedrooms:2, berging:'2,4 m²'},
+  {nr:'149', status:'free', m2:50.7, bedrooms:2, berging:'—'},
+  studio('151',33.1), studio('153',33.2), studio('155',33.2), studio('157',33.2),
+  studio('159',32.2), studio('161',26.0), studio('163',31.8), studio('165',33.2),
+  studio('167',25.0,'4,4 m²'),
+].map(u => ({...u, rent: Math.round((u.m2 * 26 + 150) / 5) * 5,
+  energy: 'A', start: '16 december 2026', service: 175}));
+
+const PHOTOS = [
+  ['#c9b89b,#8c7458','Woonkamer'],['#a8c0cf,#5d7d93','Keuken'],
+  ['#d9c7c0,#9a7b70','Slaapkamer'],['#b7c9a8,#6f8a5c','Badkamer']
+];
+const nl = n => n.toLocaleString('nl-NL');
+const byId = id => units.find(u => u.nr === id);
+const floorUnits = f => FLOORS[f] ? Object.keys(FLOORS[f].shapes).map(byId) : [];
+const mobile = () => matchMedia('(max-width: 900px)').matches;
+
+/* ---------- Elementen & status ---------- */
+const stage = document.getElementById('stage');
+const model = document.getElementById('model');
+const img = document.getElementById('viewImg');
+const overlay = document.getElementById('overlay');
+const panel = document.getElementById('panel');
+const NS = 'http://www.w3.org/2000/svg';
+let view = 'gevel', pinned = null, shown = null, pop = null;
+
+function svgEl(tag, attrs){ const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+function centroid(pts){ const xy = pts.split(' ').map(p => p.split(',').map(Number)); return [xy.reduce((s,p)=>s+p[0],0)/xy.length, xy.reduce((s,p)=>s+p[1],0)/xy.length]; }
+function setActive(sel){
+  overlay.querySelectorAll('.unit,.band').forEach(r => r.classList.toggle('active', r.dataset.id === sel));
+  overlay.classList.toggle('has-active', view === 'gevel' && sel != null);
+}
+
+/* ---------- Weergave wisselen: gevel of plattegrond ---------- */
+function showView(v){
+  view = v; pinned = null; shown = null; closePop(); overlay.classList.remove('has-active');
+  const isGevel = v === 'gevel';
+  const src = isGevel ? GEVEL : FLOORS[v];
+  stage.classList.toggle('is-gevel', isGevel);
+  model.style.aspectRatio = isGevel ? '1920/1080' : '1292/681';
+  img.src = src.img;
+  img.alt = isGevel ? 'Buitengevel van Koddeweg 55-77' : `3D-doorsnede ${FLOORINFO[v].name.toLowerCase()}`;
+  overlay.setAttribute('viewBox', `0 0 ${src.w} ${src.h}`);
+  overlay.setAttribute('preserveAspectRatio', isGevel ? 'xMidYMid slice' : 'xMidYMid meet'); // slice = zelfde uitsnede als de foto (cover)
+  overlay.innerHTML = '';
+
+  if (isGevel){
+    Object.entries(GEVEL.bands).forEach(([f, pts]) => {
+      overlay.append(svgEl('polygon', {points:pts, class:'band', 'data-id':f}));
+    });
+  } else {
+    Object.entries(FLOORS[v].shapes).forEach(([nr, pts]) => {
+      const [cx, cy] = centroid(pts);
+      const t = svgEl('text', {x:cx, y:cy, class:'unit-label'}); t.textContent = nr;
+      overlay.append(svgEl('polygon', {points:pts, class:`unit ${byId(nr).status}`, 'data-id':nr}), t);
+    });
+  }
+
+  document.querySelectorAll('.floors button').forEach(b => {
+    const on = b.dataset.view == v; b.classList.toggle('on', on); b.setAttribute('aria-selected', on);
+  });
+  document.getElementById('sub').textContent = isGevel
+    ? (mobile() ? 'Tik op een verdieping voor meer informatie.' : 'Beweeg over de gevel om een verdieping te bekijken — klik om de plattegrond te openen.')
+    : (mobile() ? 'Tik op een woning voor meer informatie.' : 'Beweeg over een woning voor details — klik om vast te zetten.');
+  document.getElementById('hint').textContent = isGevel
+    ? '5 verdiepingen · kies een verdieping'
+    : `${floorUnits(v).length} woningen · ${FLOORINFO[v].name.toLowerCase()}`;
+  panel.innerHTML = isGevel
+    ? '<div class="empty"><b>Ontdek het gebouw</b>Beweeg over de gevel om per verdieping te zien wat er te vinden is.</div>'
+    : '<div class="empty"><b>Kies een woning</b>Beweeg over het gebouw om beschikbaarheid, foto\'s en specificaties te zien.</div>';
+}
+document.querySelectorAll('.floors button').forEach(b => b.onclick = () => showView(b.dataset.view));
+
+/* ---------- Paneel: informatie over een verdieping ---------- */
+function floorHTML(f){
+  const info = FLOORINFO[f], list = floorUnits(f);
+  const free = list.filter(u => u.status === 'free');
+  const m2 = list.map(u => u.m2), rents = free.map(u => u.rent);
+  return `
+    <div class="detail floorinfo">
+      <small>Verdieping</small>
+      <h2>${info.name}</h2>
+      <p>${info.text}</p>
+      ${info.facilities.length ? `<ul class="facilities">${info.facilities.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+      ${list.length ? `<ul class="specs">
+        <li><span>Woningen</span><span>${list.length}</span></li>
+        <li><span>Beschikbaar</span><span>${free.length}</span></li>
+        <li><span>Oppervlakte</span><span>${nl(Math.min(...m2))} – ${nl(Math.max(...m2))} m²</span></li>
+        ${rents.length ? `<li><span>Huur vanaf</span><span>€${nl(Math.min(...rents))} p/m</span></li>` : ''}
+      </ul>` : ''}
+      <div style="margin-top:auto">
+        ${FLOORS[f] ? `<button class="btn" data-open="${f}">Bekijk plattegrond</button>` : `<button class="btn" disabled>Plattegrond volgt</button>`}
+      </div>
+    </div>`;
+}
+
+/* ---------- Paneel / pop-up: details van een woning ---------- */
+function unitHTML(u){
+  return `
+    <div class="detail">
+      <div class="gallery">
+        <button class="arrow prev" aria-label="Vorige foto">‹</button>
+        <button class="arrow next" aria-label="Volgende foto">›</button>
+        <span class="ph-label"></span><span class="ph-count"></span>
+      </div>
+      <div class="body">
+        <div class="top"><h2>Woning ${u.nr}</h2><span class="badge ${u.status}">${STATUS[u.status]}</span></div>
+        <div class="key">
+          <div><small>Oppervlakte</small><strong>${nl(u.m2)} m²</strong></div>
+          <div><small>Huur p/m</small><strong>€${nl(u.rent)}</strong></div>
+        </div>
+        <ul class="specs">
+          <li><span>Type</span><span>${u.bedrooms ? (u.bedrooms === 1 ? '1-slaapkamerwoning' : u.bedrooms + '-slaapkamer appartement') : 'Studio'}</span></li>
+          <li><span>Berging</span><span>${u.berging}</span></li>
+          <li><span>Energielabel</span><span><b class="label">${u.energy}</b></span></li>
+          <li><span>Start verhuur</span><span>${u.start}</span></li>
+          <li><span>Servicekosten</span><span>€${u.service} per maand</span></li>
+        </ul>
+        <div class="actions">
+          ${u.status === 'sold' ? `<button class="btn" disabled>Verhuurd</button>` : `<button class="btn js-apply">Schrijf je in</button>`}
+          <button class="btn ghost js-brochure">Download brochure</button>
+        </div>
+      </div>
+    </div>`;
+}
+function bindUnit(root, u, beforeModal){
+  let n = 0;
+  const g = root.querySelector('.gallery');
+  const show = i => {
+    n = (i + PHOTOS.length) % PHOTOS.length;
+    g.style.background = `linear-gradient(135deg,${PHOTOS[n][0]})`;
+    root.querySelector('.ph-label').textContent = PHOTOS[n][1];
+    root.querySelector('.ph-count').textContent = `${n + 1} / ${PHOTOS.length}`;
+  };
+  show(0);
+  root.querySelector('.prev').onclick = () => show(n - 1);
+  root.querySelector('.next').onclick = () => show(n + 1);
+  const a = root.querySelector('.js-apply');
+  if (a) a.onclick = () => { beforeModal && beforeModal(); openForm(u); };
+  root.querySelector('.js-brochure').onclick = () => { beforeModal && beforeModal(); openBrochure(u); };
+}
+function renderPanel(key){
+  if (shown === key) return;
+  shown = key;
+  if (view === 'gevel'){
+    panel.innerHTML = floorHTML(key);
+    const b = panel.querySelector('[data-open]'); if (b) b.onclick = () => showView(b.dataset.open);
+  } else {
+    const u = byId(key);
+    panel.innerHTML = unitHTML(u); bindUnit(panel, u);
+  }
+}
+
+/* ---------- Telefoon: kleine kaart bij tikken, daarna pop-up ---------- */
+function closePop(){ if (pop){ pop.remove(); pop = null; } if (mobile()) setActive(null); }
+function openPop(poly){
+  closePop();
+  const id = poly.dataset.id;
+  setActive(id);
+  pop = document.createElement('div');
+  pop.className = 'pop';
+  if (view === 'gevel'){
+    const info = FLOORINFO[id];
+    pop.innerHTML = `<div class="txt"><b>${info.name}</b><p>${info.short}</p></div>` +
+      (FLOORS[id] ? `<button class="btn small">Bekijk plattegrond ›</button>` : `<button class="btn small" disabled>Plattegrond volgt</button>`);
+    const b = pop.querySelector('button:not([disabled])'); if (b) b.onclick = () => showView(id);
+  } else {
+    const u = byId(id);
+    pop.innerHTML = `<div class="txt"><b>Woning ${u.nr}<span class="dot" style="background:${COLOR[u.status]}" title="${STATUS[u.status]}"></span></b>
+      <p>${nl(u.m2)} m² · €${nl(u.rent)} p/m · ${STATUS[u.status].toLowerCase()}</p></div>
+      <button class="btn small">Meer info ›</button>`;
+    pop.querySelector('button').onclick = () => { closePop(); openSheet(u); };
+  }
+  model.after(pop); // vaste plek direct onder de tekening
+}
+function openSheet(u){
+  const m = modal(`<div class="dialog sheet" role="dialog" aria-modal="true" aria-label="Woning ${u.nr}">
+      <button type="button" class="close" aria-label="Sluiten">×</button>${unitHTML(u)}</div>`);
+  bindUnit(m.el, u, m.close);
+}
+
+/* ---------- Muis & tikken ---------- */
+overlay.addEventListener('mouseover', e => {
+  const id = e.target.dataset?.id; if (!id || mobile() || pinned) return;
+  setActive(id); renderPanel(id);
+});
+overlay.addEventListener('click', e => {
+  const id = e.target.dataset?.id;
+  if (mobile()){ id ? openPop(e.target) : closePop(); return; }
+  if (!id) return;
+  if (view === 'gevel'){ if (FLOORS[id]) showView(id); return; }
+  pinned = pinned === id ? null : id;
+  setActive(id); shown = null; renderPanel(id);
+});
+overlay.addEventListener('mouseleave', () => { if (view === 'gevel' && !mobile()) setActive(null); });
+document.addEventListener('click', e => {
+  if (pop && !pop.contains(e.target) && !overlay.contains(e.target)) closePop();
+});
+
+/* ---------- Pop-ups midden in beeld ---------- */
+function modal(inner){
+  const el = document.createElement('div');
+  el.className = 'modal';
+  el.innerHTML = inner;
+  document.body.append(el);
+  const close = () => { el.remove(); document.removeEventListener('keydown', esc); };
+  const esc = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', esc);
+  el.addEventListener('click', e => { if (e.target === el) close(); });
+  el.querySelector('.close').onclick = close;
+  return {el, close};
+}
+function formModal(title, sub, fields, submitText, done){
+  const m = modal(`
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlgTitle">
+      <button type="button" class="close" aria-label="Sluiten">×</button>
+      <div class="dlg-body">
+        <h3 id="dlgTitle">${title}</h3>
+        <p>${sub}</p>
+        <form class="apply">${fields}<button class="btn" type="submit">${submitText}</button></form>
+      </div>
+    </div>`);
+  m.el.querySelector('input').focus();
+  m.el.querySelector('form').onsubmit = e => {
+    e.preventDefault(); // TODO backend: formulier naar je mail-endpoint sturen
+    m.el.querySelector('.dlg-body').innerHTML = done(new FormData(e.target));
+  };
+}
+function openForm(u){
+  formModal(`Bedankt dat u zich wilt inschrijven voor appartement met huisnummer ${u.nr}`,
+    `${nl(u.m2)} m² · €${nl(u.rent)} per maand · start verhuur ${u.start}`, `
+      <div class="grid2">
+        <label>Achternaam<input id="f-achternaam" required name="achternaam" autocomplete="family-name"></label>
+        <label>Voornamen<input id="f-voornamen" required name="voornamen" autocomplete="given-name"></label>
+      </div>
+      <label>Geboortedatum<input id="f-geboortedatum" required type="date" name="geboortedatum" autocomplete="bday"></label>
+      <label>Adres<input id="f-adres" required name="adres" placeholder="Straat en huisnummer" autocomplete="street-address"></label>
+      <label>Postcode + woonplaats<input id="f-postcode" required name="postcode_woonplaats" placeholder="1234 AB Rotterdam"></label>
+      <label>Inkomen (bruto)<input id="f-inkomen" required name="inkomen" inputmode="numeric" placeholder="€ per jaar"></label>
+      <div class="grid2">
+        <label>Telefoonnummer<input id="f-telefoon" required type="tel" name="telefoon" placeholder="06 …" autocomplete="tel"></label>
+        <label>E-mail<input id="f-email" required type="email" name="email" placeholder="u@voorbeeld.nl" autocomplete="email"></label>
+      </div>`,
+    'Inschrijving versturen',
+    () => `<h3>Inschrijving ontvangen</h3><div class="sent">✓ Bedankt! Uw inschrijving voor appartement ${u.nr} is verstuurd. We nemen binnen 2 werkdagen contact met u op.</div>`);
+}
+function openBrochure(u){
+  formModal(`Download de brochure van appartement met huisnummer ${u.nr}`,
+    'Vul uw gegevens in, dan ontvangt u de brochure direct per e-mail.', `
+      <div class="grid2">
+        <label>Achternaam<input id="b-achternaam" required name="achternaam" autocomplete="family-name"></label>
+        <label>Voornamen<input id="b-voornamen" required name="voornamen" autocomplete="given-name"></label>
+      </div>
+      <div class="grid2">
+        <label>Telefoonnummer<input id="b-telefoon" type="tel" name="telefoon" placeholder="06 …" autocomplete="tel"></label>
+        <label>E-mail<input id="b-email" required type="email" name="email" placeholder="u@voorbeeld.nl" autocomplete="email"></label>
+      </div>`,
+    'Brochure ontvangen',
+    d => `<h3>Brochure onderweg</h3><div class="sent">✓ Bedankt! De brochure van appartement ${u.nr} is verstuurd naar ${d.get('email').replace(/[<>&]/g,'')}.</div>`);
+}
+
+showView('gevel');
+</script>
+</body>
+</html>
