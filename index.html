@@ -40,6 +40,9 @@
   .unit:hover,.unit.active{fill-opacity:.72;stroke-width:3;filter:drop-shadow(0 0 8px currentColor)}
   .unit-label{pointer-events:none;font:700 14px sans-serif;fill:#fff;opacity:0;transition:opacity .18s;text-anchor:middle;dominant-baseline:middle;paint-order:stroke;stroke:rgba(0,0,0,.45);stroke-width:3px}
   .unit:hover + .unit-label,.unit.active + .unit-label{opacity:1}
+  .unit.common{fill:#fff;stroke:#fff;color:#fff;fill-opacity:.55;stroke-width:2;filter:drop-shadow(0 0 1.5px rgba(0,0,0,.55))}
+  .unit.common:hover,.unit.common.active{fill-opacity:.9;stroke-width:3;filter:drop-shadow(0 0 8px rgba(0,0,0,.35))}
+  .unit.common + .unit-label{fill:var(--ink);stroke:rgba(255,255,255,.8);font-size:13px}
 
   /* verdiepingen op de gevel: onzichtbaar tot je erover beweegt */
   .band{cursor:pointer;fill:#fff;fill-opacity:0;stroke:#fff;stroke-opacity:0;stroke-width:3;stroke-linejoin:round;transition:fill-opacity .25s ease,stroke-opacity .25s ease}
@@ -85,7 +88,7 @@
   .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
   .top h2{margin:0;font-size:20px}
   .badge{font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;color:#fff}
-  .badge.free{background:var(--free)} .badge.option{background:var(--option);color:#3b2f00} .badge.sold{background:var(--sold)}
+  .badge.common{background:var(--soft);color:var(--ink)} .badge.free{background:var(--free)} .badge.option{background:var(--option);color:#3b2f00} .badge.sold{background:var(--sold)}
 
   .key{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
   .key div{background:var(--soft);border-radius:10px;padding:8px 12px}
@@ -149,6 +152,7 @@
       <span><i style="background:var(--free)"></i>Beschikbaar</span>
       <span><i style="background:var(--option)"></i>In optie</span>
       <span><i style="background:var(--sold)"></i>Verhuurd</span>
+      <span><i style="background:#fff;box-shadow:inset 0 0 0 1px #9aa19d"></i>Gemeenschappelijk</span>
     </div>
   </header>
 
@@ -218,7 +222,7 @@ const FLOORS = {
     '75': '364,239 267,264 274,364 385,332',
     '73': '267,264 139,296 125,408 274,364',
     '55': '1030,253 867,313 992,454 1179,366',
-  }},
+  }, common:{id:'G0', pts:'1028,72 841,119 913,178 1111,120'}},
   3: {img:'gebouw.png', w:1292, h:538, shapes:{
     '149': '935,17 791,46 849,85 1001,50',
     '151': '791,46 682,69 731,113 849,85',
@@ -232,7 +236,7 @@ const FLOORS = {
     '161': '265,248 103,287 79,399 270,344',
     '147': '1040,152 930,187 1159,362 1285,303',
     '145': '930,187 805,227 1010,433 1159,362',
-  }},
+  }, common:{id:'G3', pts:'1024,63 839,108 913,161 1111,105'}},
 };
 
 /* ---------- Woninggegevens (m² uit plattegronden; huurprijzen zijn voorbeeld) ---------- */
@@ -255,6 +259,19 @@ const units = [
   studio('167',25.0,'4,4 m²'),
 ].map(u => ({...u, rent: Math.round((u.m2 * 26 + 150) / 5) * 5,
   energy: 'A', start: '16 december 2026', service: 175}));
+
+/* ---------- Gemeenschappelijke ruimtes (witte vakjes) ---------- */
+const COMMON = {
+  G0: {floor:'Begane grond', name:'Gemeenschappelijke woonkamer', m2:65.5,
+       text:'De huiskamer van het gebouw, naast de entree. Een plek om samen te eten, anderen te ontmoeten of even te ontspannen buiten je eigen woning. Vrij te gebruiken door alle bewoners.',
+       items:['Pantry met keukenblok','Eettafels en zithoek','Tafeltennistafel','Vending','Eigen toilet'],
+       photos:[['#cfc3ad,#8f7d5f','Woonkamer'],['#b9c7b0,#6d8660','Pantry'],['#c7ccd6,#6f7a8f','Tafeltennis']]},
+  G3: {floor:'3e verdieping', name:'Gemeenschappelijke ruimte', m2:64.1,
+       text:'Een gedeelde ruimte op de 3e verdieping, om samen te koken en eten, elkaar te ontmoeten of een potje te tafeltennissen. Vrij te gebruiken door alle bewoners.',
+       items:['Pantry met vending','Eettafels','Tafeltennistafel'],
+       photos:[['#cfc3ad,#8f7d5f','Gemeenschappelijke ruimte'],['#b9c7b0,#6d8660','Pantry'],['#c7ccd6,#6f7a8f','Tafeltennis']]},
+};
+const isCommon = id => id in COMMON;
 
 const PHOTOS = [
   ['#c9b89b,#8c7458','Woonkamer'],['#a8c0cf,#5d7d93','Keuken'],
@@ -304,6 +321,12 @@ function showView(v){
       const t = svgEl('text', {x:cx, y:cy, class:'unit-label'}); t.textContent = nr;
       overlay.append(svgEl('polygon', {points:pts, class:`unit ${byId(nr).status}`, 'data-id':nr}), t);
     });
+    const c = FLOORS[v].common;
+    if (c){
+      const [cx, cy] = centroid(c.pts);
+      const t = svgEl('text', {x:cx, y:cy, class:'unit-label'}); t.textContent = 'Gemeenschappelijk';
+      overlay.append(svgEl('polygon', {points:c.pts, class:'unit common', 'data-id':c.id}), t);
+    }
   }
 
   document.querySelectorAll('.floors button').forEach(b => {
@@ -344,6 +367,28 @@ function floorHTML(f){
     </div>`;
 }
 
+/* ---------- Paneel / pop-up: gemeenschappelijke ruimte ---------- */
+function commonHTML(c){
+  return `
+    <div class="detail">
+      <div class="gallery">
+        <button class="arrow prev" aria-label="Vorige foto">‹</button>
+        <button class="arrow next" aria-label="Volgende foto">›</button>
+        <span class="ph-label"></span><span class="ph-count"></span>
+      </div>
+      <div class="body">
+        <div class="top"><h2>${c.name}</h2></div>
+        <div class="key">
+          <div><small>Oppervlakte</small><strong>${nl(c.m2)} m²</strong></div>
+          <div><small>Verdieping</small><strong style="font-size:17px;line-height:1.9">${c.floor}</strong></div>
+        </div>
+        <p style="margin:0 0 10px;font-size:14px;line-height:1.5">${c.text}</p>
+        <ul class="facilities">${c.items.map(x => `<li>${x}</li>`).join('')}</ul>
+        <div style="margin-top:auto"><span class="badge common">Voor alle bewoners</span></div>
+      </div>
+    </div>`;
+}
+
 /* ---------- Paneel / pop-up: details van een woning ---------- */
 function unitHTML(u){
   return `
@@ -373,18 +418,19 @@ function unitHTML(u){
       </div>
     </div>`;
 }
-function bindUnit(root, u, beforeModal){
+function bindUnit(root, u, beforeModal, photos = PHOTOS){
   let n = 0;
   const g = root.querySelector('.gallery');
   const show = i => {
-    n = (i + PHOTOS.length) % PHOTOS.length;
-    g.style.background = `linear-gradient(135deg,${PHOTOS[n][0]})`;
-    root.querySelector('.ph-label').textContent = PHOTOS[n][1];
-    root.querySelector('.ph-count').textContent = `${n + 1} / ${PHOTOS.length}`;
+    n = (i + photos.length) % photos.length;
+    g.style.background = `linear-gradient(135deg,${photos[n][0]})`;
+    root.querySelector('.ph-label').textContent = photos[n][1];
+    root.querySelector('.ph-count').textContent = `${n + 1} / ${photos.length}`;
   };
   show(0);
   root.querySelector('.prev').onclick = () => show(n - 1);
   root.querySelector('.next').onclick = () => show(n + 1);
+  if (!u) return; // gemeenschappelijke ruimte: alleen foto's
   const a = root.querySelector('.js-apply');
   if (a) a.onclick = () => { beforeModal && beforeModal(); openForm(u); };
   root.querySelector('.js-brochure').onclick = () => { beforeModal && beforeModal(); openBrochure(u); };
@@ -395,6 +441,8 @@ function renderPanel(key){
   if (view === 'gevel'){
     panel.innerHTML = floorHTML(key);
     const b = panel.querySelector('[data-open]'); if (b) b.onclick = () => showView(b.dataset.open);
+  } else if (isCommon(key)){
+    panel.innerHTML = commonHTML(COMMON[key]); bindUnit(panel, null, null, COMMON[key].photos);
   } else {
     const u = byId(key);
     panel.innerHTML = unitHTML(u); bindUnit(panel, u);
@@ -414,6 +462,11 @@ function openPop(poly){
     pop.innerHTML = `<div class="txt"><b>${info.name}</b><p>${info.short}</p></div>` +
       (FLOORS[id] ? `<button class="btn small">Bekijk plattegrond ›</button>` : `<button class="btn small" disabled>Plattegrond volgt</button>`);
     const b = pop.querySelector('button:not([disabled])'); if (b) b.onclick = () => showView(id);
+  } else if (isCommon(id)){
+    const c = COMMON[id];
+    pop.innerHTML = `<div class="txt"><b>${c.name}</b><p>${nl(c.m2)} m² · voor alle bewoners</p></div>
+      <button class="btn small">Meer info ›</button>`;
+    pop.querySelector('button').onclick = () => { closePop(); openCommonSheet(c); };
   } else {
     const u = byId(id);
     pop.innerHTML = `<div class="txt"><b>Woning ${u.nr}<span class="dot" style="background:${COLOR[u.status]}" title="${STATUS[u.status]}"></span></b>
@@ -422,6 +475,11 @@ function openPop(poly){
     pop.querySelector('button').onclick = () => { closePop(); openSheet(u); };
   }
   model.after(pop); // vaste plek direct onder de tekening
+}
+function openCommonSheet(c){
+  const m = modal(`<div class="dialog sheet" role="dialog" aria-modal="true" aria-label="${c.name}">
+      <button type="button" class="close" aria-label="Sluiten">×</button>${commonHTML(c)}</div>`);
+  bindUnit(m.el, null, null, c.photos);
 }
 function openSheet(u){
   const m = modal(`<div class="dialog sheet" role="dialog" aria-modal="true" aria-label="Woning ${u.nr}">
