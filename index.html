@@ -107,6 +107,13 @@
   .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--ink)}
   .btn[disabled]{background:#e5e7e6;color:#8a908d;cursor:not-allowed}
   .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto}
+  .specs .btn{width:auto;padding:5px 11px;font-size:12.5px}
+  .arrow.zoom{top:10px;right:10px;transform:none;font-size:15px}
+  .dialog.viewer{max-width:1040px;padding:18px}
+  .dialog.viewer h3{margin:0 40px 12px 0;font-size:18px}
+  .dialog.viewer img{display:block;width:100%;height:auto;border-radius:12px;border:1px solid var(--line)}
+  .viewer .big{position:relative;border-radius:12px;height:min(66vh,560px);display:flex;align-items:end;padding:16px;color:#fff;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,.45)}
+  .viewer .cap{margin-top:10px;color:var(--muted);font-size:13px}
   .btn:focus-visible,.arrow:focus-visible,.close:focus-visible,.floors button:focus-visible,form.apply input:focus-visible{outline:2px solid #1a9b48;outline-offset:2px}
 
   .modal{position:fixed;inset:0;background:rgba(20,24,22,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:10;animation:fade .18s ease-out}
@@ -374,6 +381,7 @@ function commonHTML(c){
       <div class="gallery">
         <button class="arrow prev" aria-label="Vorige foto">‹</button>
         <button class="arrow next" aria-label="Volgende foto">›</button>
+        <button class="arrow zoom js-zoom" aria-label="Foto vergroten" title="Foto vergroten">⤢</button>
         <span class="ph-label"></span><span class="ph-count"></span>
       </div>
       <div class="body">
@@ -396,6 +404,7 @@ function unitHTML(u){
       <div class="gallery">
         <button class="arrow prev" aria-label="Vorige foto">‹</button>
         <button class="arrow next" aria-label="Volgende foto">›</button>
+        <button class="arrow zoom js-zoom" aria-label="Foto vergroten" title="Foto vergroten">⤢</button>
         <span class="ph-label"></span><span class="ph-count"></span>
       </div>
       <div class="body">
@@ -410,6 +419,7 @@ function unitHTML(u){
           <li><span>Energielabel</span><span><b class="label">${u.energy}</b></span></li>
           <li><span>Start verhuur</span><span>${u.start}</span></li>
           <li><span>Servicekosten</span><span>€${u.service} per maand</span></li>
+          <li><span>Plattegrond</span><span><button class="btn ghost js-plan">Bekijk plattegrond</button></span></li>
         </ul>
         <div class="actions">
           ${u.status === 'sold' ? `<button class="btn" disabled>Verhuurd</button>` : `<button class="btn js-apply">Schrijf je in</button>`}
@@ -430,7 +440,9 @@ function bindUnit(root, u, beforeModal, photos = PHOTOS){
   show(0);
   root.querySelector('.prev').onclick = () => show(n - 1);
   root.querySelector('.next').onclick = () => show(n + 1);
+  root.querySelector('.js-zoom').onclick = () => { beforeModal && beforeModal(); openPhotos(photos, n); };
   if (!u) return; // gemeenschappelijke ruimte: alleen foto's
+  root.querySelector('.js-plan').onclick = () => { beforeModal && beforeModal(); openPlan(u); };
   const a = root.querySelector('.js-apply');
   if (a) a.onclick = () => { beforeModal && beforeModal(); openForm(u); };
   root.querySelector('.js-brochure').onclick = () => { beforeModal && beforeModal(); openBrochure(u); };
@@ -476,6 +488,42 @@ function openPop(poly){
   }
   model.after(pop); // vaste plek direct onder de tekening
 }
+/* ---------- Grote weergave: plattegrond en foto's ---------- */
+function openPlan(u){
+  modal(`<div class="dialog viewer" role="dialog" aria-modal="true" aria-label="Plattegrond woning ${u.nr}">
+      <button type="button" class="close" aria-label="Sluiten">×</button>
+      <h3>Plattegrond woning ${u.nr} · ${nl(u.m2)} m²</h3>
+      <img src="plattegrond/${u.nr}.webp" alt="Plattegrond van woning ${u.nr}">
+      <p class="cap">Uitsnede uit de bouwtekening; het huisnummer staat in rood in de plattegrond.</p>
+    </div>`);
+}
+function openPhotos(photos, start = 0){
+  const m = modal(`<div class="dialog viewer" role="dialog" aria-modal="true" aria-label="Foto's">
+      <button type="button" class="close" aria-label="Sluiten">×</button>
+      <h3 class="v-title"></h3>
+      <div class="big">
+        <button class="arrow prev" aria-label="Vorige foto">‹</button>
+        <button class="arrow next" aria-label="Volgende foto">›</button>
+        <span class="v-count"></span>
+      </div>
+    </div>`);
+  let n = start;
+  const show = i => {
+    n = (i + photos.length) % photos.length;
+    m.el.querySelector('.big').style.background = `linear-gradient(135deg,${photos[n][0]})`;
+    m.el.querySelector('.v-title').textContent = photos[n][1];
+    m.el.querySelector('.v-count').textContent = `${n + 1} / ${photos.length}`;
+  };
+  show(start);
+  m.el.querySelector('.prev').onclick = () => show(n - 1);
+  m.el.querySelector('.next').onclick = () => show(n + 1);
+  document.addEventListener('keydown', function k(e){
+    if (!document.body.contains(m.el)) return document.removeEventListener('keydown', k);
+    if (e.key === 'ArrowLeft') show(n - 1);
+    if (e.key === 'ArrowRight') show(n + 1);
+  });
+}
+
 function openCommonSheet(c){
   const m = modal(`<div class="dialog sheet" role="dialog" aria-modal="true" aria-label="${c.name}">
       <button type="button" class="close" aria-label="Sluiten">×</button>${commonHTML(c)}</div>`);
